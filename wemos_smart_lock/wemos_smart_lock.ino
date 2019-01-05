@@ -8,15 +8,17 @@
 // Credencial está em configuração do projeto, contas e serviços.
 #define FIREBASE_HOST "ledd-f30cc.firebaseio.com"
 #define FIREBASE_AUTH "7XsYCYGOp7vawpwb5iqy4XOymxQUH5jcNjJIYOHV"
-#define WIFI_SSID "Wil_Wifi"
+//#define WIFI_SSID "Wil_Wifi"
 //#define WIFI_SSID "Claudio_Wifi"
-#define WIFI_PASSWORD "PlsChangeMe@senhas0"
+//#define WIFI_PASSWORD "PlsChangeMe@senhas0"
+#define WIFI_SSID "SudoApt-Get102"
+#define WIFI_PASSWORD "J606165249"
 
 int countPass = 0;
 bool access = false, state;
 
-String path = "/";
-FirebaseObject object = Firebase.get(path);
+//String path = "/access";
+//FirebaseObject object = Firebase.get(path);
 String password = "";
 
 /*
@@ -39,22 +41,30 @@ byte colPins[COLS] = {D4, D5, D6}; //connect to the column pinouts of the keypad
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 /*
- * COISAS REFERENTES AO DISPLAY
+ * COISAS REFERENTES AO QR CODE E DISPLAY
  */
-#include <Adafruit_SSD1306.h>
-#include <Adafruit_GFX.h>
- 
-Adafruit_SSD1306 display(-1);//cria o objeto do display para i2c 
+
+#include <qrcode.h>
+#include <SSD1306.h>
+#include <Wire.h>  // Only needed for Arduino 1.6.5 and earlier
+#include "images.h"
+
+SSD1306Wire  display(0x3c, D2, D1);
+QRcode qrcode (&display);
 
 void introMessage(){
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.println("");
-  display.println("");
-  display.println("SMART");
-  display.println("LOCK");
+  display.clear();
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 22, "SMART");
+  display.drawString(64, 44, "LOCK");
   display.display();
+}
+
+void drawImageDemo() { //From the library examples
+    // see http://blog.squix.org/2015/05/esp8266-nodemcu-how-to-create-xbm.html
+    // on how to create xbm files
+    display.drawXbm(34, 14, WiFi_Logo_width, WiFi_Logo_height, WiFi_Logo_bits);
 }
 
 void setup() {
@@ -62,14 +72,21 @@ void setup() {
   Serial.begin (9600);
 
   //DISPLAY
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);//Begin communication with the display in the right address
-  delay(100);
-  introMessage();
+  display.init();//Begin communication with the display in the right address
+  display.flipScreenVertically();
+  qrcode.init();
+  //qrcode.create("Teste");
 
   //WIFI
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD); //Connectos to home wifi using wifi name and password
   Serial.print("conectando");
   while (WiFi.status() != WL_CONNECTED) {//Wait until WIFI is connected
+    display.clear();
+    drawImageDemo();
+    display.setTextAlignment(TEXT_ALIGN_RIGHT);
+    display.drawString(10, 128, String(millis()));
+    // write the buffer to the display
+    display.display();
     Serial.print(".");
     delay(500);
   }
@@ -81,6 +98,7 @@ void setup() {
  
   //FIREBASE
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  introMessage();
 }
 
 void loop() {
@@ -91,66 +109,67 @@ void loop() {
     Serial.println(key);
     password += key;
     countPass++;
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setCursor(0, 0);
-    display.setTextSize(1);
-    display.println("Password:");
+    display.clear();
+    display.setFont(ArialMT_Plain_16);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.drawString(64, 10, "Password");
     if (countPass == 1){
-      display.setTextSize(2);
-      display.print("*");  
+      display.setFont(ArialMT_Plain_16);
+      display.setTextAlignment(TEXT_ALIGN_CENTER);
+      display.drawString(64, 40, "*");  
     }
     else if(countPass == 2){
-      display.setTextSize(2);
-      display.print("* *");
+      display.setFont(ArialMT_Plain_16);
+      display.setTextAlignment(TEXT_ALIGN_CENTER);
+      display.drawString(64, 40, "*  *");
     }
     else if(countPass == 3){
-      display.setTextSize(2);
-      display.print("* * *");
+      display.setFont(ArialMT_Plain_16);
+      display.setTextAlignment(TEXT_ALIGN_CENTER);
+      display.drawString(64, 40, "*  *  *");
     }
     else if(countPass == 4){
-      display.setTextSize(2);
-      display.print("* * * *");
+      display.setFont(ArialMT_Plain_16);
+      display.setTextAlignment(TEXT_ALIGN_CENTER);
+      display.drawString(64, 40, "*  *  *  *");
     }
-    //display.setTextSize(2);
-    //display.print(key);
+
     display.display();
 
     if (!strcmp(password.c_str(), "1234") && countPass == 4){
       Serial.println ("Access released!");
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextSize(1);
-      display.print("You may come in");
+      display.clear();
+      display.setTextAlignment(TEXT_ALIGN_LEFT);
+      display.setFont(ArialMT_Plain_16);
+      display.drawString(0, 0, "You may come in!");
       display.display();
       countPass = 0; //Zera contador de digitos pressionados
       password = ""; //Reseta senha
       access = true; //Libera acesso a porta
-      Firebase.setBool("access", access); //Envia para o firebase a informação de que o acesso foi liberado
+      Firebase.set("/access/status", "true"); //Envia para o firebase a informação de que o acesso foi liberado
       
       //state = Firebase.getBool("access");
       Serial.print("Current port state: ");
-      Serial.println(Firebase.getBool("access"));
+      Serial.println(Firebase.getString("/access/status/"));
       delay (1000);
       introMessage();
     }
     else if (countPass == 4){
       Serial.println("Try 4 digits again!");
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextSize(1);
-      display.println("Wrong Password!");
-      display.setTextSize(1);
-      display.println("Try again!");
+      display.clear();
+      display.setTextAlignment(TEXT_ALIGN_LEFT);
+      display.setFont(ArialMT_Plain_16);
+      display.drawString(0, 0, "Wrong password...");
+      display.drawString(0, 20, "Try Again!");
       display.display();
       countPass = 0;
       password = "";
       access = false;
-      Firebase.setBool("access", access);
+      Firebase.set("/access/status", "false");
 
       //state = Firebase.getBool("access");
       Serial.print("Current port state: ");
-      Serial.println(Firebase.getBool("access"));
+      Serial.println(Firebase.getString("/access/status/"));
       delay(1000);
       introMessage();
     }
