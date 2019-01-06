@@ -17,8 +17,6 @@
 int countPass = 0;
 bool access = false, state;
 
-//String path = "/access";
-//FirebaseObject object = Firebase.get(path);
 String password = "";
 
 /*
@@ -98,6 +96,17 @@ void setup() {
  
   //FIREBASE
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+
+  qrcode.create("Necessario para entrar!");
+  display.display();
+  while(1){
+    if (Firebase.getString("/access/hardware/") == "true"){
+      Firebase.set("/access/hardware", "false");
+      break;
+    }
+    delay(300);
+  }
+
   introMessage();
 }
 
